@@ -27,7 +27,8 @@ import {
   Flag,
   Info,
   Image,
-  Coffee
+  Coffee,
+  Search
 } from 'lucide-react';
 import { collection, addDoc, query, orderBy, onSnapshot, where, updateDoc, doc, deleteDoc, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
@@ -1745,183 +1746,153 @@ const ServiceSection = ({
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {/* Tab Switcher */}
-                  <div className="flex bg-neutral-100 p-1 rounded-2xl">
-                    <button 
-                      onClick={() => setAdminTab('agenda')}
-                      className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all ${adminTab === 'agenda' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400'}`}
-                    >
-                      <CalendarIcon size={14} className="inline mr-2" /> Agenda
-                    </button>
-                    <button 
-                      onClick={() => setAdminTab('folgas')}
-                      className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all ${adminTab === 'folgas' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400'}`}
-                    >
-                      <CalendarDays size={14} className="inline mr-2" /> Folgas
-                    </button>
-                    <button 
-                      onClick={() => setAdminTab('usuarios')}
-                      className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all ${adminTab === 'usuarios' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400'}`}
-                    >
-                      <UserX size={14} className="inline mr-2" /> Usuários
-                    </button>
-                    <button 
-                      onClick={() => setAdminTab('equipe')}
-                      className={`flex-1 py-3 px-2 rounded-xl text-[10px] font-bold transition-all ${adminTab === 'equipe' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400'}`}
-                    >
-                      <Settings size={12} className="inline mr-1" /> Equipe
-                    </button>
-                    <button 
-                      onClick={() => setAdminTab('bloqueios')}
-                      className={`flex-1 py-3 px-2 rounded-xl text-[10px] font-bold transition-all ${adminTab === 'bloqueios' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400'}`}
-                    >
-                      <Coffee size={12} className="inline mr-1" /> Pausas
-                    </button>
+                  {/* Simplified Tab Switcher */}
+                  <div className="flex bg-neutral-50 p-1 rounded-2xl border border-neutral-100">
+                    {[
+                      { id: 'agenda', icon: CalendarIcon, label: 'Agenda' },
+                      { id: 'folgas', icon: CalendarDays, label: 'Folgas' },
+                      { id: 'usuarios', icon: UserX, label: 'Clientes' },
+                      { id: 'equipe', icon: Settings, label: 'Equipe' },
+                      { id: 'bloqueios', icon: Coffee, label: 'Pausas' }
+                    ].map(tab => (
+                      <button 
+                        key={tab.id}
+                        onClick={() => setAdminTab(tab.id as any)}
+                        className={`flex-1 py-2.5 rounded-xl text-[10px] font-bold transition-all flex flex-col items-center gap-1 ${
+                          adminTab === tab.id ? 'bg-white text-primary shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
+                        }`}
+                      >
+                        <tab.icon size={14} />
+                        {tab.label}
+                      </button>
+                    ))}
                   </div>
 
                   {adminTab === 'bloqueios' && (
-                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                      <div className="bg-white p-6 rounded-[32px] border border-neutral-100 space-y-6">
-                        <div className="flex justify-between items-center px-2">
-                          <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Bloquear Horário Individual</h3>
-                        </div>
-                        <div className="p-4 bg-primary/5 rounded-3xl border border-primary/10 space-y-4">
-                          <div className="grid gap-3">
-                            <select 
-                              value={newBlockProfessional}
-                              onChange={e => setNewBlockProfessional(e.target.value)}
-                              className="bg-white px-5 py-3 rounded-2xl border border-neutral-100 text-sm outline-none"
-                            >
-                              <option value="">Selecione o Profissional</option>
-                              {liveProfessionals.map(p => (
-                                <option key={p.id} value={p.id}>{p.name}</option>
-                              ))}
-                            </select>
-                            <input 
-                              type="date"
-                              value={newBlockDate}
-                              onChange={e => setNewBlockDate(e.target.value)}
-                              className="bg-white px-5 py-3 rounded-2xl border border-neutral-100 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                            />
-                            <select 
-                              value={newBlockTime}
-                              onChange={e => setNewBlockTime(e.target.value)}
-                              className="bg-white px-5 py-3 rounded-2xl border border-neutral-100 text-sm outline-none"
-                            >
-                              <option value="">Selecione o Horário</option>
-                              {TIME_SLOTS.map(t => (
-                                <option key={t} value={t}>{t}</option>
-                              ))}
-                            </select>
-                            <select 
-                              value={newBlockReason}
-                              onChange={e => setNewBlockReason(e.target.value)}
-                              className="bg-white px-5 py-3 rounded-2xl border border-neutral-100 text-sm outline-none"
-                            >
-                              <option value="Almoço">Almoço</option>
-                              <option value="Intervalo">Intervalo</option>
-                              <option value="Imprevisto">Imprevisto</option>
-                              <option value="Pessoal">Pessoal</option>
-                            </select>
-                            <Button 
-                              onClick={async () => {
-                                if (!newBlockProfessional || !newBlockDate || !newBlockTime) return;
-                                await handleAddTimeBlock(newBlockProfessional, newBlockDate, newBlockTime, newBlockReason);
-                                setNewBlockTime('');
-                                alert('Horário bloqueado com sucesso!');
-                              }} 
-                              className="py-2.5"
-                            >
-                              Confirmar Bloqueio
-                            </Button>
-                          </div>
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                      <div className="bg-white p-6 rounded-[32px] border border-neutral-100 space-y-4">
+                        <h3 className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest px-1">Bloquear Horário</h3>
+                        <div className="grid grid-cols-2 gap-2">
+                          <select 
+                            value={newBlockProfessional}
+                            onChange={e => setNewBlockProfessional(e.target.value)}
+                            className="bg-neutral-50 px-4 py-2.5 rounded-xl border-none text-[11px] font-bold uppercase outline-none col-span-2"
+                          >
+                            <option value="">Selecione Profissional</option>
+                            {liveProfessionals.map(p => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                          </select>
+                          <input 
+                            type="date"
+                            value={newBlockDate}
+                            onChange={e => setNewBlockDate(e.target.value)}
+                            className="bg-neutral-50 px-4 py-2.5 rounded-xl border-none text-[11px] font-bold outline-none"
+                          />
+                          <select 
+                            value={newBlockTime}
+                            onChange={e => setNewBlockTime(e.target.value)}
+                            className="bg-neutral-50 px-4 py-2.5 rounded-xl border-none text-[11px] font-bold uppercase outline-none"
+                          >
+                            <option value="">Horário</option>
+                            {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                          <select 
+                            value={newBlockReason}
+                            onChange={e => setNewBlockReason(e.target.value)}
+                            className="bg-neutral-50 px-4 py-2.5 rounded-xl border-none text-[11px] font-bold uppercase outline-none col-span-2"
+                          >
+                            <option value="Almoço">Almoço</option>
+                            <option value="Intervalo">Intervalo</option>
+                            <option value="Imprevisto">Imprevisto</option>
+                            <option value="Pessoal">Pessoal</option>
+                          </select>
+                          <Button 
+                            onClick={async () => {
+                              if (!newBlockProfessional || !newBlockDate || !newBlockTime) return;
+                              await handleAddTimeBlock(newBlockProfessional, newBlockDate, newBlockTime, newBlockReason);
+                              setNewBlockTime('');
+                              alert('Bloqueado!');
+                            }} 
+                            className="py-2.5 col-span-2 text-[11px] font-bold uppercase"
+                          >
+                            Confirmar
+                          </Button>
                         </div>
                       </div>
 
-                      <div className="space-y-3 px-2">
-                        <h4 className="text-[10px] uppercase tracking-widest text-neutral-400 font-bold ml-1">Bloqueios Ativos</h4>
-                        {timeBlocks.filter(tb => new Date(tb.date) >= new Date(new Date().setHours(0,0,0,0))).length > 0 ? (
-                           timeBlocks
-                            .filter(tb => new Date(tb.date) >= new Date(new Date().setHours(0,0,0,0)))
-                            .sort((a,b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
-                            .map(tb => {
-                              const prof = liveProfessionals.find(p => p.id === tb.professionalId);
-                              return (
-                                <div key={tb.id} className="p-4 bg-white rounded-2xl border border-neutral-100 flex justify-between items-center shadow-sm">
-                                  <div className="space-y-1">
-                                    <p className="text-xs font-bold text-neutral-800">{tb.date.split('-').reverse().join('/')} às {tb.time}</p>
-                                    <p className="text-[10px] text-primary font-bold uppercase tracking-wider">{prof?.name} • {tb.reason}</p>
+                      <div className="space-y-2 px-2">
+                        <h4 className="text-[9px] uppercase tracking-widest text-neutral-400 font-bold ml-1">Bloqueios Ativos</h4>
+                        <div className="grid gap-2">
+                          {timeBlocks.filter(tb => new Date(tb.date) >= new Date(new Date().setHours(0,0,0,0))).length > 0 ? (
+                             timeBlocks
+                              .filter(tb => new Date(tb.date) >= new Date(new Date().setHours(0,0,0,0)))
+                              .sort((a,b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+                              .map(tb => {
+                                const prof = liveProfessionals.find(p => p.id === tb.professionalId);
+                                return (
+                                  <div key={tb.id} className="p-3 bg-white rounded-2xl border border-neutral-100 flex justify-between items-center">
+                                    <div>
+                                      <p className="text-[11px] font-bold text-neutral-800">{tb.date.split('-').reverse().join('/')} às {tb.time}</p>
+                                      <p className="text-[9px] text-primary font-bold uppercase">{prof?.name} • {tb.reason}</p>
+                                    </div>
+                                    <button 
+                                      onClick={async () => { if (confirm('Liberar?')) await deleteDoc(doc(db, 'time_blocks', tb.id)); }}
+                                      className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
                                   </div>
-                                  <button 
-                                    onClick={async () => {
-                                      if (confirm('Liberar este horário?')) {
-                                        await deleteDoc(doc(db, 'time_blocks', tb.id));
-                                      }
-                                    }}
-                                    className="p-2 text-red-400 hover:bg-red-50 rounded-xl transition-colors"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                </div>
-                              );
-                            })
-                        ) : (
-                          <div className="text-center py-8 bg-neutral-50 rounded-2xl border border-dashed border-neutral-200">
-                            <p className="text-xs text-neutral-400">Nenhum bloqueio futuro</p>
-                          </div>
-                        )}
+                                );
+                              })
+                          ) : (
+                            <p className="text-center py-4 text-[10px] text-neutral-400 bg-neutral-50 rounded-2xl border border-dashed border-neutral-200">Sem bloqueios</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
 
                   {adminTab === 'usuarios' && (
-                    <div className="space-y-6">
-                      <div className="bg-white/40 p-6 rounded-[32px] border border-white space-y-4">
-                        <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest px-2">Gerenciamento de Usuários</h3>
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                      <div className="bg-white p-6 rounded-[32px] border border-neutral-100 space-y-4 shadow-sm">
+                        <div className="flex justify-between items-center px-1">
+                          <h3 className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Base de Clientes</h3>
+                          <span className="text-[10px] font-bold text-primary bg-primary/5 px-2 py-1 rounded-lg">
+                            {Object.keys(userStatuses).length} Registrados
+                          </span>
+                        </div>
                         
-                        <div className="space-y-3">
-                          {Object.entries(userStatuses).length === 0 ? (
-                            <div className="text-center py-12 text-neutral-400">
-                              <UserX size={40} className="mx-auto mb-4 opacity-20" />
-                              <p className="text-xs font-bold">Nenhum usuário com status especial</p>
-                            </div>
+                        <div className="grid gap-2">
+                          {Object.keys(userStatuses).length === 0 ? (
+                            <p className="text-center py-8 text-[11px] text-neutral-400 italic">Nenhum cliente registrado</p>
                           ) : (
-                            (Object.entries(userStatuses) as [string, UserStatus][])
-                              .sort((a, b) => new Date(b[1].updatedAt).getTime() - new Date(a[1].updatedAt).getTime())
-                              .map(([userId, status]) => (
-                              <div key={userId} className="p-5 bg-white rounded-3xl border border-neutral-100 space-y-4">
-                                <div className="flex justify-between items-start">
-                                  <div className="min-w-0">
-                                    <p className="font-bold text-neutral-800 truncate">{status.lastUsedName || 'Usuário sem nome'}</p>
-                                    <p className="text-[10px] text-neutral-400 font-mono truncate">{status.email || userId}</p>
-                                    <p className="text-[10px] text-neutral-400">{status.lastUsedPhone}</p>
+                            Object.entries(userStatuses).map(([userId, status]) => (
+                              <div key={userId} className="p-4 bg-neutral-50 rounded-2xl flex justify-between items-center border border-transparent hover:border-neutral-200 transition-all">
+                                <div className="min-w-0 pr-4">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <p className="text-[11px] font-bold text-neutral-800 truncate">{status.email?.split('@')[0] || 'Cliente'}</p>
+                                    {status.isAdmin && <span className="bg-neutral-800 text-white text-[7px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">Admin</span>}
                                   </div>
-                                  <div className="flex gap-2 shrink-0">
-                                    {status.isBlocked && (
-                                      <span className="bg-red-50 text-red-600 text-[8px] font-bold px-2 py-1 rounded-lg uppercase tracking-widest">Bloqueado</span>
-                                    )}
-                                    {status.isFlagged && (
-                                      <span className="bg-orange-50 text-orange-600 text-[8px] font-bold px-2 py-1 rounded-lg uppercase tracking-widest">Observação</span>
-                                    )}
+                                  <p className="text-[9px] text-neutral-400 font-bold lowercase truncate opacity-60">{status.email || userId}</p>
+                                  <div className="flex gap-2 mt-2">
+                                    {status.isFlagged && <span className="text-[7px] font-bold text-orange-500 uppercase flex items-center gap-0.5"><Flag size={8} /> Obs Ativa</span>}
+                                    {status.isBlocked && <span className="text-[7px] font-bold text-red-500 uppercase flex items-center gap-0.5"><ShieldAlert size={8} /> Bloqueado</span>}
                                   </div>
                                 </div>
                                 
-                                <div className="flex gap-2 pt-2 border-t border-neutral-50 px-1">
+                                <div className="flex gap-2 shrink-0">
                                   <button 
                                     onClick={() => handleUpdateUserStatus(userId, 'flag')}
-                                    className={`flex-1 py-3 rounded-xl text-[10px] font-bold transition-all border ${
-                                      status.isFlagged ? 'bg-orange-500 text-white border-orange-500' : 'bg-neutral-50 text-neutral-500 border-transparent hover:border-orange-200'
-                                    }`}
+                                    className={`p-2 rounded-xl border transition-all ${status.isFlagged ? 'bg-orange-500 text-white border-orange-600' : 'bg-white text-neutral-400 border-neutral-100'}`}
                                   >
-                                    {status.isFlagged ? 'Remover Flag' : 'Marcar Observação'}
+                                    <Flag size={14} />
                                   </button>
                                   <button 
                                     onClick={() => handleUpdateUserStatus(userId, 'block')}
-                                    className={`flex-1 py-3 rounded-xl text-[10px] font-bold transition-all border ${
-                                      status.isBlocked ? 'bg-red-600 text-white border-red-600' : 'bg-neutral-50 text-neutral-500 border-transparent hover:border-red-200'
-                                    }`}
+                                    className={`p-2 rounded-xl border transition-all ${status.isBlocked ? 'bg-red-500 text-white border-red-600' : 'bg-white text-neutral-400 border-neutral-100'}`}
                                   >
-                                    {status.isBlocked ? 'Desbloquear' : 'Bloquear Conta'}
+                                    <UserX size={14} />
                                   </button>
                                 </div>
                               </div>
@@ -1933,138 +1904,98 @@ const ServiceSection = ({
                   )}
 
                   {adminTab === 'equipe' && (
-                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                      <div className="bg-white p-6 rounded-[32px] border border-neutral-100 space-y-6">
-                        <div className="flex justify-between items-center px-2">
-                          <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Catálogo de Serviços</h3>
-                        </div>
-                        
-                        <div className="grid gap-3">
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                      <div className="bg-white p-6 rounded-[32px] border border-neutral-100 space-y-4 shadow-sm">
+                        <h3 className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest px-1">Gerenciar Serviços</h3>
+                        <div className="grid grid-cols-2 gap-2">
                           {liveServices.map(s => (
-                            <div key={s.id} className="p-4 bg-neutral-50 rounded-2xl flex justify-between items-center">
-                              <div>
-                                <p className="font-bold text-neutral-800">{s.name}</p>
-                                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mt-0.5">{s.category}</p>
+                            <div key={s.id} className="p-3 bg-neutral-50 rounded-xl flex justify-between items-center group">
+                              <div className="truncate min-w-0 pr-2">
+                                <p className="text-[10px] font-bold text-neutral-700 truncate">{s.name}</p>
+                                <p className="text-[8px] text-neutral-400 font-bold uppercase truncate">{s.category}</p>
                               </div>
                               <button 
-                                onClick={async () => {
-                                  if (confirm('Deseja excluir este serviço do catálogo global?')) {
-                                    await deleteDoc(doc(db, 'services', s.id));
-                                  }
-                                }}
-                                className="p-2 text-red-400 hover:bg-red-50 rounded-xl transition-colors"
+                                onClick={async () => { if (confirm('Excluir?')) await deleteDoc(doc(db, 'services', s.id)); }}
+                                className="text-red-300 hover:text-red-500 p-1 transition-colors"
                               >
-                                <Trash2 size={16} />
+                                <Trash2 size={12} />
                               </button>
                             </div>
                           ))}
                         </div>
-
-                        <div className="p-4 bg-primary/5 rounded-3xl border border-primary/10 space-y-4">
-                          <p className="text-[10px] font-bold text-primary uppercase tracking-widest text-center">Adicionar Novo Serviço Global</p>
-                          <div className="grid gap-3">
+                        <div className="pt-4 border-t border-neutral-50 space-y-2">
+                          <input 
+                            type="text" 
+                            placeholder="Nome do novo serviço..."
+                            value={newServiceName}
+                            onChange={e => setNewServiceName(e.target.value)}
+                            className="w-full bg-neutral-50 px-4 py-2.5 rounded-xl text-[11px] font-bold outline-none placeholder:text-neutral-300"
+                          />
+                          <select 
+                            value={isNewCategory ? 'new' : newServiceCategory}
+                            onChange={e => e.target.value === 'new' ? setIsNewCategory(true) : (setIsNewCategory(false), setNewServiceCategory(e.target.value))}
+                            className="w-full bg-neutral-50 px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase outline-none"
+                          >
+                            {availableCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                            <option value="new">+ Nova Categoria</option>
+                          </select>
+                          {isNewCategory && (
                             <input 
                               type="text" 
-                              placeholder="Nome do Serviço (ex: Banho de Gel)"
-                              value={newServiceName}
-                              onChange={e => setNewServiceName(e.target.value)}
-                              className="bg-white px-5 py-3 rounded-2xl border border-neutral-100 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                              placeholder="Título da categoria..."
+                              value={customCategory}
+                              onChange={e => setCustomCategory(e.target.value)}
+                              className="w-full bg-primary/5 px-4 py-2.5 rounded-xl text-[11px] font-bold outline-none border border-primary/10"
                             />
-                            
-                            <div className="space-y-2">
-                              <select 
-                                value={isNewCategory ? 'new' : newServiceCategory}
-                                onChange={e => {
-                                  if (e.target.value === 'new') {
-                                    setIsNewCategory(true);
-                                  } else {
-                                    setIsNewCategory(false);
-                                    setNewServiceCategory(e.target.value);
-                                  }
-                                }}
-                                className="w-full bg-white px-5 py-3 rounded-2xl border border-neutral-100 text-sm outline-none"
-                              >
-                                {availableCategories.map(cat => (
-                                  <option key={cat} value={cat}>{cat}</option>
-                                ))}
-                                <option value="new">+ Criar nova categoria...</option>
-                              </select>
-
-                              {isNewCategory && (
-                                <motion.input 
-                                  initial={{ opacity: 0, y: -10 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  type="text" 
-                                  placeholder="Digite o nome da nova categoria"
-                                  value={customCategory}
-                                  onChange={e => setCustomCategory(e.target.value)}
-                                  className="w-full bg-white px-5 py-3 rounded-2xl border border-primary/20 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                                />
-                              )}
-                            </div>
-
-                            <Button onClick={handleCreateGlobalService} className="py-2.5">Criar Serviço</Button>
-                          </div>
+                          )}
+                          <Button onClick={handleCreateGlobalService} className="w-full py-2.5 text-[11px] font-bold uppercase ring-offset-2">Adicionar ao Catálogo</Button>
                         </div>
                       </div>
 
                       <div className="space-y-4">
-                        <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest px-4">Profissionais & Preços</h3>
-                        <div className="grid gap-6">
+                        <h3 className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest px-4">Configurar Profissionais</h3>
+                        <div className="space-y-3">
                           {liveProfessionals.map(p => (
-                            <div key={p.id} className="bg-white p-6 rounded-[32px] border border-neutral-100 space-y-6 shadow-sm">
-                              <div className="flex items-center gap-4 border-b border-neutral-50 pb-4">
-                                <img src={p.avatar} className="w-12 h-12 rounded-2xl object-cover" />
+                            <div key={p.id} className="bg-white p-5 rounded-[32px] border border-neutral-100 shadow-sm space-y-4">
+                              <div className="flex items-center gap-3">
+                                <img src={p.avatar} className="w-10 h-10 rounded-2xl object-cover" />
                                 <div>
-                                  <h4 className="font-bold text-neutral-800">{p.name}</h4>
-                                  <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">{p.role}</p>
+                                  <h4 className="text-sm font-bold text-neutral-800">{p.name}</h4>
+                                  <p className="text-[9px] text-neutral-400 font-bold uppercase">{p.role}</p>
                                 </div>
                               </div>
-
-                              <div className="space-y-3">
-                                <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider px-2">Serviços Disponíveis</p>
+                              <div className="grid gap-2">
                                 {p.services.map(ps => {
                                   const serviceInfo = liveServices.find(ls => ls.id === ps.serviceId);
                                   return (
-                                    <div key={ps.serviceId} className="flex gap-3 items-center">
-                                      <div className="flex-1 bg-neutral-50 p-4 rounded-2xl">
-                                        <p className="font-bold text-neutral-700 text-sm">{serviceInfo?.name || ps.serviceId}</p>
-                                      </div>
-                                      <div className="relative w-32">
-                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 text-xs">R$</span>
+                                    <div key={ps.serviceId} className="flex gap-2 items-center bg-neutral-50 px-3 py-2.5 rounded-xl">
+                                      <span className="flex-1 text-[10px] font-bold text-neutral-600 truncate">{serviceInfo?.name || ps.serviceId}</span>
+                                      <div className="flex items-center gap-1 bg-white px-2 py-1.5 rounded-lg border border-neutral-200/50">
+                                        <span className="text-[8px] text-neutral-400 font-bold uppercase">R$</span>
                                         <input 
                                           type="number"
                                           defaultValue={ps.price}
                                           onBlur={(e) => handleUpdateProfessionalService(p.id, ps.serviceId, Number(e.target.value))}
-                                          className="w-full bg-white pl-10 pr-4 py-3 rounded-2xl border border-neutral-100 text-sm font-bold text-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                                          className="w-10 text-[10px] font-bold text-primary outline-none bg-transparent"
                                         />
                                       </div>
-                                      <button 
-                                        onClick={() => handleRemoveServiceFromProfessional(p.id, ps.serviceId)}
-                                        className="p-3 text-red-400 hover:bg-red-50 rounded-2xl transition-colors"
-                                      >
-                                        <Trash2 size={16} />
-                                      </button>
+                                      <button onClick={() => handleRemoveServiceFromProfessional(p.id, ps.serviceId)} className="p-1.5 text-neutral-300 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
                                     </div>
                                   );
                                 })}
                               </div>
-
-                              <div className="pt-4 border-t border-neutral-50">
-                                <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider px-2 mb-3">Vincular Mais Serviços</p>
-                                <div className="flex gap-2 flex-wrap">
-                                  {liveServices
-                                    .filter(ls => !p.services.some(ps => ps.serviceId === ls.id))
-                                    .map(ls => (
-                                      <button 
-                                        key={ls.id}
-                                        onClick={() => handleAddServiceToProfessional(p.id, ls.id, 0)}
-                                        className="px-4 py-2 bg-neutral-50 hover:bg-primary/10 hover:text-primary rounded-xl text-[10px] font-bold transition-all text-neutral-500"
-                                      >
-                                        + {ls.name}
-                                      </button>
-                                    ))
-                                  }
+                              <div className="pt-2 border-t border-neutral-50">
+                                <p className="text-[8px] font-bold text-neutral-300 uppercase tracking-tighter mb-2">Vincular mais:</p>
+                                <div className="flex gap-1.5 flex-wrap">
+                                  {liveServices.filter(ls => !p.services.some(ps => ps.serviceId === ls.id)).map(ls => (
+                                    <button 
+                                      key={ls.id}
+                                      onClick={() => handleAddServiceToProfessional(p.id, ls.id, 0)}
+                                      className="px-3 py-1.5 bg-neutral-50 hover:bg-primary/5 hover:text-primary rounded-lg text-[9px] font-bold text-neutral-400 transition-all border border-transparent hover:border-primary/10"
+                                    >
+                                      + {ls.name}
+                                    </button>
+                                  ))}
                                 </div>
                               </div>
                             </div>
@@ -2075,113 +2006,84 @@ const ServiceSection = ({
                   )}
 
                   {adminTab === 'agenda' && (
-                    <>
-                      {/* Agenda content here */}
-                      {/* Professional Filter */}
-                      <div className="bg-white/50 p-4 rounded-3xl border border-white space-y-3">
-                        <h3 className="text-[10px] uppercase tracking-widest text-neutral-400 font-bold px-2">Filtrar por Profissional</h3>
-                        <div className="flex gap-2 p-1 bg-neutral-100 rounded-2xl overflow-x-auto scrollbar-hide">
-                          <button 
-                            onClick={() => setAdminProfessionalFilter('all')}
-                            className={`flex-1 py-2 px-3 rounded-xl text-[10px] font-bold whitespace-nowrap transition-all ${adminProfessionalFilter === 'all' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400'}`}
-                          >
-                            Todos
-                          </button>
-                          {(liveProfessionals.length > 0 ? liveProfessionals : PROFESSIONALS).map(p => (
-                            <button 
-                              key={p.id}
-                              onClick={() => setAdminProfessionalFilter(p.id)}
-                              className={`flex-1 py-2 px-3 rounded-xl text-[10px] font-bold whitespace-nowrap transition-all ${adminProfessionalFilter === p.id ? 'bg-white text-primary shadow-sm' : 'text-neutral-400'}`}
+                    <div className="space-y-6">
+                      {/* Integrated Filter Section */}
+                      <div className="bg-white rounded-[32px] border border-neutral-100 shadow-sm overflow-hidden">
+                        <div className="p-4 space-y-4">
+                          <div className="flex gap-2">
+                            <div className="flex-1 relative">
+                              <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-300" />
+                              <input
+                                type="text"
+                                placeholder="Buscar cliente..."
+                                value={adminSearch}
+                                onChange={(e) => setAdminSearch(e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 bg-neutral-50 rounded-2xl text-[11px] font-bold uppercase tracking-wider outline-none focus:ring-2 focus:ring-primary/10"
+                              />
+                            </div>
+                            <select 
+                              value={adminProfessionalFilter}
+                              onChange={e => setAdminProfessionalFilter(e.target.value)}
+                              className="px-4 py-3 bg-neutral-50 rounded-2xl text-[11px] font-bold uppercase tracking-wider outline-none border-none"
                             >
-                              {p.name.split(' ')[0]}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                              <option value="all">Equipe: Todos</option>
+                              {(liveProfessionals.length > 0 ? liveProfessionals : PROFESSIONALS).map(p => (
+                                <option key={p.id} value={p.id}>{p.name.split(' ')[0]}</option>
+                              ))}
+                            </select>
+                          </div>
 
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="p-4 bg-white rounded-3xl border border-neutral-100 shadow-sm text-center">
-                          <p className="text-[8px] uppercase font-bold text-neutral-400 tracking-wider mb-1">Total</p>
-                          <p className="text-2xl text-primary font-serif">
-                            {appointments.filter(a => adminProfessionalFilter === 'all' || a.professionalId === adminProfessionalFilter).length}
-                          </p>
-                        </div>
-                        <div className="p-4 bg-white rounded-3xl border border-neutral-100 shadow-sm text-center">
-                          <p className="text-[8px] uppercase font-bold text-neutral-400 tracking-wider mb-1">Hoje</p>
-                          <p className="text-2xl text-primary font-serif">
-                            {appointments.filter(a => 
-                              (adminProfessionalFilter === 'all' || a.professionalId === adminProfessionalFilter) && 
-                              a.date === new Date().toISOString().split('T')[0]
-                            ).length}
-                          </p>
-                        </div>
-                        <div className="p-4 bg-white rounded-3xl border border-neutral-100 shadow-sm text-center bg-primary/5 border-primary/10">
-                          <p className="text-[8px] uppercase font-bold text-primary/60 tracking-wider mb-1">Amanhã</p>
-                          <p className="text-2xl text-primary font-serif">
-                            {appointments.filter(a => {
-                              const matchesProf = adminProfessionalFilter === 'all' || a.professionalId === adminProfessionalFilter;
-                              const tomorrow = new Date();
-                              tomorrow.setDate(tomorrow.getDate() + 1);
-                              return matchesProf && a.date === tomorrow.toISOString().split('T')[0];
-                            }).length}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Horizontal Date Filter */}
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between px-2">
-                          <h3 className="text-[10px] uppercase tracking-widest text-neutral-400 font-bold">Filtrar por data</h3>
-                          <div className="flex gap-4 items-center">
-                            <div className="flex gap-1">
-                              <button 
-                                onClick={() => scrollDates('left')}
-                                className="p-1.5 rounded-lg bg-neutral-100 text-neutral-500 hover:bg-primary/10 hover:text-primary transition-colors hidden md:block"
-                              >
-                                <ChevronLeft size={14} />
-                              </button>
-                              <button 
-                                onClick={() => scrollDates('right')}
-                                className="p-1.5 rounded-lg bg-neutral-100 text-neutral-500 hover:bg-primary/10 hover:text-primary transition-colors hidden md:block"
-                              >
-                                <ChevronRight size={14} />
-                              </button>
+                          <div className="flex gap-4 items-center justify-between px-1">
+                            <div className="flex gap-6">
+                              <div className="flex flex-col">
+                                <span className="text-[8px] text-neutral-400 font-bold uppercase tracking-tighter">Hoje</span>
+                                <span className="text-lg font-serif text-primary leading-none">
+                                  {appointments.filter(a => (adminProfessionalFilter === 'all' || a.professionalId === adminProfessionalFilter) && a.date === new Date().toISOString().split('T')[0]).length}
+                                </span>
+                              </div>
+                              <div className="flex flex-col border-l border-neutral-100 pl-6">
+                                <span className="text-[8px] text-neutral-400 font-bold uppercase tracking-tighter">Total</span>
+                                <span className="text-lg font-serif text-primary leading-none">
+                                  {appointments.filter(a => adminProfessionalFilter === 'all' || a.professionalId === adminProfessionalFilter).length}
+                                </span>
+                              </div>
                             </div>
                             {adminDateFilter !== 'all' && (
-                              <button onClick={() => setAdminDateFilter('all')} className="text-[10px] text-primary font-bold underline">Ver Todos</button>
+                              <button onClick={() => setAdminDateFilter('all')} className="text-[10px] text-primary font-bold underline">Limpar Data</button>
                             )}
                           </div>
                         </div>
+
+                        {/* Horizontal Date Picker */}
                         <div 
                           ref={scrollContainerRef}
-                          className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2 scroll-smooth"
+                          className="flex gap-1.5 overflow-x-auto p-4 pt-0 scrollbar-hide scroll-smooth"
                         >
                           <button 
                             onClick={() => setAdminDateFilter('all')}
-                            className={`px-5 py-3 rounded-2xl text-xs font-bold whitespace-nowrap transition-all border ${
+                            className={`px-4 py-2 rounded-xl text-[10px] font-bold whitespace-nowrap transition-all border ${
                               adminDateFilter === 'all' 
-                                ? 'bg-primary text-white border-primary shadow-md shadow-primary/20' 
-                                : 'bg-white text-neutral-400 border-neutral-100'
+                                ? 'bg-primary text-white border-primary shadow-sm' 
+                                : 'bg-neutral-50 text-neutral-400 border-transparent hover:bg-neutral-100'
                             }`}
                           >
-                            Todos
+                            Tudo
                           </button>
                           {[...Array(14)].map((_, i) => {
                             const d = new Date();
                             d.setDate(d.getDate() + i);
                             const dateStr = d.toISOString().split('T')[0];
-                            const isTodayValue = i === 0;
                             return (
                               <button 
                                 key={dateStr}
                                 onClick={() => setAdminDateFilter(dateStr)}
-                                className={`px-4 py-3 rounded-2xl text-xs font-bold whitespace-nowrap transition-all border flex flex-col items-center min-w-[60px] ${
+                                className={`px-4 py-2 rounded-xl text-[10px] font-bold whitespace-nowrap transition-all border flex gap-2 items-center ${
                                   adminDateFilter === dateStr 
-                                    ? 'bg-primary text-white border-primary shadow-md shadow-primary/20' 
-                                    : 'bg-white text-neutral-400 border-neutral-100'
+                                    ? 'bg-primary text-white border-primary shadow-sm' 
+                                    : 'bg-neutral-50 text-neutral-400 border-transparent'
                                 }`}
                               >
-                                <span className="text-[8px] opacity-60 uppercase mb-0.5">{d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.','')}</span>
+                                <span className="opacity-60 uppercase">{d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.','')}</span>
                                 <span>{d.getDate()}</span>
                               </button>
                             );
@@ -2190,28 +2092,19 @@ const ServiceSection = ({
                       </div>
 
                       <div className="space-y-4">
-                        <div className="flex justify-between items-center px-2">
+                        <div className="flex justify-between items-center px-4">
                           <h3 className="text-[10px] uppercase tracking-widest text-neutral-400 font-bold">
-                            {adminDateFilter === 'all' ? 'Todos os Agendamentos' : `Agenda para ${new Date(adminDateFilter + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`}
+                            {adminDateFilter === 'all' ? 'Relatório de Agendamentos' : `Agenda: ${new Date(adminDateFilter + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`}
                           </h3>
-                        </div>
-                        
-                        <div className="px-2">
-                          <input
-                            type="text"
-                            placeholder="Buscar cliente ou telefone..."
-                            value={adminSearch}
-                            onChange={(e) => setAdminSearch(e.target.value)}
-                            className="w-full p-3 rounded-xl border border-neutral-200 text-sm focus:border-primary outline-none"
-                          />
                         </div>
                         
                         {appointments.filter(a => {
                           const matchesDate = adminDateFilter === 'all' || a.date === adminDateFilter;
+                          const matchesProf = adminProfessionalFilter === 'all' || a.professionalId === adminProfessionalFilter;
                           const matchesSearch = !adminSearch || 
                             (a.customerName?.toLowerCase().includes(adminSearch.toLowerCase()) || 
                              a.customerPhone?.toLowerCase().includes(adminSearch.toLowerCase()));
-                          return matchesDate && matchesSearch;
+                          return matchesDate && matchesProf && matchesSearch;
                         }).length === 0 ? (
                           <div className="text-center p-16 text-neutral-300 bg-white rounded-[40px] border border-dashed border-neutral-200">
                             Nenhum agendamento encontrado
@@ -2231,156 +2124,154 @@ const ServiceSection = ({
                                 <motion.div 
                                   key={app.id} 
                                   layout
-                                  onClick={() => app.description ? setExpandedAppointmentId(expandedAppointmentId === app.id ? null : app.id!) : null}
-                                  className={`group p-6 bg-white rounded-[32px] shadow-sm border transition-all space-y-4 ${
-                                    app.description ? 'cursor-pointer' : ''
-                                  } ${
-                                    expandedAppointmentId === app.id ? 'border-primary shadow-lg shadow-primary/5 ring-1 ring-primary/10' : 'border-neutral-100'
-                                  } hover:border-primary/20 active:scale-[0.99]`}
+                                  onClick={() => setExpandedAppointmentId(expandedAppointmentId === app.id ? null : app.id!)}
+                                  className={`p-5 bg-white rounded-3xl border transition-all space-y-4 cursor-pointer ${
+                                    expandedAppointmentId === app.id ? 'border-primary shadow-lg shadow-primary/5' : 'border-neutral-100 shadow-sm'
+                                  } hover:border-primary/20`}
                                 >
-                                  <div className="flex gap-5">
-                                    <div className="bg-primary/5 p-4 rounded-2xl text-center h-fit min-w-[70px] border border-primary/5">
-                                      <p className="text-sm text-primary font-bold">{app.time}</p>
-                                      <p className="text-[9px] text-neutral-400 font-bold uppercase mt-1">{app.date.split('-').reverse().slice(0,2).join('/')}</p>
+                                  <div className="flex justify-between items-start">
+                                    <div className="flex gap-4 min-w-0">
+                                      <div className="bg-neutral-50 px-3 py-1.5 rounded-xl text-center h-fit shrink-0 border border-neutral-100/50">
+                                        <p className="text-xs font-bold text-neutral-800">{app.time}</p>
+                                        <p className="text-[8px] text-neutral-400 font-bold uppercase">{app.date.split('-').reverse().slice(0,2).join('/')}</p>
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5 mb-0.5">
+                                          <p className="font-bold text-neutral-800 truncate">{app.customerName}</p>
+                                          {userStatuses[app.customerId]?.isFlagged && <div className="w-1.5 h-1.5 bg-orange-400 rounded-full shrink-0" />}
+                                          {userStatuses[app.customerId]?.isBlocked && <div className="w-1.5 h-1.5 bg-red-500 rounded-full shrink-0" />}
+                                          {app.description && <MessageSquare size={10} className="text-primary shrink-0" />}
+                                        </div>
+                                        <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider truncate">
+                                          {app.serviceName} • <span className="text-primary/60">{app.professionalName.split(' ')[0]}</span>
+                                        </p>
+                                      </div>
                                     </div>
-                                    <div className="flex-1 space-y-2 min-w-0">
-                                      <div className="flex justify-between items-start gap-2">
-                                        <div className="flex items-center gap-2 min-w-0">
-                                          <p className="font-bold text-neutral-800 leading-tight truncate text-lg">{app.customerName}</p>
-                                          {userStatuses[app.customerId]?.isFlagged && (
-                                            <div className="bg-orange-500 text-white p-1 rounded-full shrink-0" title="Usuário sob observação">
-                                              <Flag size={10} />
-                                            </div>
-                                          )}
-                                          {userStatuses[app.customerId]?.isBlocked && (
-                                            <div className="bg-red-600 text-white p-1 rounded-full shrink-0" title="Usuário Bloqueado">
-                                              <ShieldAlert size={10} />
-                                            </div>
-                                          )}
-                                          {app.description && (
-                                            <div className="bg-primary text-white p-1 rounded-full shrink-0">
-                                              <MessageSquare size={10} />
-                                            </div>
-                                          )}
-                                        </div>
-                                        <div className={`p-1 px-2 rounded-lg text-[8px] font-bold uppercase tracking-widest block shrink-0 ${
-                                          app.status === 'confirmed' ? 'bg-green-50 text-green-600' : 
-                                          app.status === 'cancelled' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'
-                                        }`}>
-                                          {app.status === 'pending' ? 'PENDENTE' : app.status === 'confirmed' ? 'CONFIRMADO' : 'CANCELADO'}
-                                        </div>
-                                      </div>
-                                      <p className="text-sm text-neutral-500 italic font-serif opacity-80">
-                                        {app.serviceName} 
-                                        <span className="inline-block mx-2 opacity-30 text-[8px] tracking-[0.3em] font-sans">|</span>
-                                        <span className="text-[10px] text-primary uppercase font-bold tracking-widest font-sans not-italic">{app.professionalName}</span>
-                                      </p>
-                                      <div className="flex justify-between items-center pt-1">
-                                        <a 
-                                          href={`https://wa.me/${app.customerPhone.replace(/\D/g,'')}`} 
-                                          target="_blank" 
-                                          onClick={(e) => e.stopPropagation()}
-                                          className="text-[10px] px-3 py-1.5 bg-green-500/10 text-green-600 rounded-full font-bold flex items-center gap-2 hover:bg-green-500 hover:text-white transition-colors"
+                                    <div className={`px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-wider ${
+                                      app.status === 'confirmed' ? 'bg-green-50 text-green-600' : 
+                                      app.status === 'cancelled' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'
+                                    }`}>
+                                      {app.status === 'pending' ? 'Pendente' : app.status === 'confirmed' ? 'Confirmado' : 'Cancelado'}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center justify-between gap-2 pt-1">
+                                    <div className="flex gap-1.5">
+                                      <a 
+                                        href={`https://wa.me/${app.customerPhone.replace(/\D/g,'')}`} 
+                                        target="_blank" 
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="p-2 bg-neutral-50 text-neutral-400 hover:text-green-500 rounded-xl transition-colors border border-transparent hover:border-green-100"
+                                      >
+                                        <Phone size={14} />
+                                      </a>
+                                      <button 
+                                        onClick={(e) => { e.stopPropagation(); setExpandedAppointmentId(expandedAppointmentId === app.id ? null : app.id!); }}
+                                        className={`p-2 rounded-xl transition-colors ${expandedAppointmentId === app.id ? 'bg-primary/10 text-primary' : 'bg-neutral-50 text-neutral-400'}`}
+                                      >
+                                        <Settings size={14} />
+                                      </button>
+                                    </div>
+
+                                    <div className="flex gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                      {app.paymentStatus === 'paid' && app.status !== 'confirmed' ? (
+                                        <button 
+                                          onClick={() => handleVerifyPayment(app.id!)}
+                                          className="bg-primary text-white px-4 py-2 rounded-xl text-[10px] font-bold shadow-md shadow-primary/20 animate-pulse"
                                         >
-                                          <Phone size={12} /> WhatsApp
-                                        </a>
-                                        {app.description && (
-                                          <div className="text-[10px] text-primary font-bold flex items-center gap-1">
-                                            {expandedAppointmentId === app.id ? (
-                                              <>Recolher <ChevronUp size={12} /></>
-                                            ) : (
-                                              <>Ver Detalhes <ChevronDown size={12} /></>
-                                            )}
-                                          </div>
-                                        )}
-                                      </div>
+                                          Validar PIX
+                                        </button>
+                                      ) : app.status !== 'confirmed' && (
+                                        <button 
+                                          onClick={() => handleUpdateStatus(app.id!, 'confirmed')}
+                                          className="bg-neutral-800 text-white px-4 py-2 rounded-xl text-[10px] font-bold shadow-sm"
+                                        >
+                                          Confirmar
+                                        </button>
+                                      )}
+                                      
+                                      {app.status === 'confirmed' && (
+                                        <button 
+                                          onClick={() => handleUpdateStatus(app.id!, 'cancelled')}
+                                          className="px-3 py-2 text-neutral-400 hover:text-red-400 text-[10px] font-bold transition-colors"
+                                        >
+                                          Cancelar
+                                        </button>
+                                      )}
+                                      
+                                      {app.status === 'cancelled' && (
+                                         <button 
+                                          onClick={() => handleUpdateStatus(app.id!, 'confirmed')}
+                                          className="px-3 py-2 text-neutral-400 hover:text-green-500 text-[10px] font-bold transition-colors"
+                                        >
+                                          Reativar
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
 
                                   <AnimatePresence>
-                                    {expandedAppointmentId === app.id && app.description && (
+                                    {expandedAppointmentId === app.id && (
                                       <motion.div 
                                         initial={{ height: 0, opacity: 0 }}
                                         animate={{ height: 'auto', opacity: 1 }}
                                         exit={{ height: 0, opacity: 0 }}
                                         className="overflow-hidden"
                                       >
-                                        <div className="pt-4 border-t border-dashed border-neutral-100">
-                                          <p className="text-[9px] uppercase tracking-widest text-neutral-300 font-bold mb-2">Descrição do cliente:</p>
-                                          <div className="p-4 bg-neutral-50 rounded-2xl text-sm text-neutral-600 italic">
-                                            "{app.description}"
+                                        <div className="pt-4 border-t border-dashed border-neutral-100 space-y-4">
+                                          {app.description && (
+                                            <div className="p-3 bg-neutral-50 rounded-2xl text-[11px] text-neutral-500 font-light italic border border-neutral-100">
+                                              "{app.description}"
+                                            </div>
+                                          )}
+                                          
+                                          <div className="flex gap-2">
+                                            <button 
+                                              onClick={() => handleUpdateUserStatus(app.customerId, 'flag')}
+                                              className={`flex-1 py-2.5 px-3 rounded-xl text-[9px] font-bold border transition-all ${
+                                                userStatuses[app.customerId]?.isFlagged ? 'bg-orange-50 border-orange-200 text-orange-600' : 'bg-white border-neutral-100 text-neutral-400 hover:border-orange-200 hover:text-orange-400'
+                                              }`}
+                                            >
+                                              {userStatuses[app.customerId]?.isFlagged ? 'Observação: Sim' : 'Marcar Observação'}
+                                            </button>
+                                            <button 
+                                              onClick={() => handleUpdateUserStatus(app.customerId, 'block')}
+                                              className={`flex-1 py-2.5 px-3 rounded-xl text-[9px] font-bold border transition-all ${
+                                                userStatuses[app.customerId]?.isBlocked ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-neutral-100 text-neutral-400 hover:border-red-200 hover:text-red-400'
+                                              }`}
+                                            >
+                                              {userStatuses[app.customerId]?.isBlocked ? 'Bloqueio: Sim' : 'Bloquear Conta'}
+                                            </button>
+                                            <button 
+                                              onClick={() => handleDeleteAppointment(app.id!)}
+                                              className="p-2.5 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all ml-auto border border-transparent hover:border-red-600"
+                                            >
+                                              <Trash2 size={14} />
+                                            </button>
                                           </div>
                                         </div>
                                       </motion.div>
                                     )}
                                   </AnimatePresence>
                                   
-                                  <div className="flex gap-2 pt-2 border-t border-neutral-50" onClick={(e) => e.stopPropagation()}>
-                                    <div className="flex gap-1 border-r border-neutral-100 pr-2 mr-2">
-                                      <button 
-                                        onClick={() => handleUpdateUserStatus(app.customerId, 'flag')}
-                                        title={userStatuses[app.customerId]?.isFlagged ? "Remover de observação" : "Colocar sob observação"}
-                                        className={`p-2 rounded-xl transition-all ${userStatuses[app.customerId]?.isFlagged ? 'bg-orange-500 text-white' : 'bg-neutral-50 text-neutral-400 hover:text-orange-500'}`}
-                                      >
-                                        <Flag size={14} />
-                                      </button>
-                                      <button 
-                                        onClick={() => handleUpdateUserStatus(app.customerId, 'block')}
-                                        title={userStatuses[app.customerId]?.isBlocked ? "Desbloquear usuário" : "Bloquear usuário"}
-                                        className={`p-2 rounded-xl transition-all ${userStatuses[app.customerId]?.isBlocked ? 'bg-red-600 text-white' : 'bg-neutral-50 text-neutral-400 hover:text-red-600'}`}
-                                      >
-                                        <UserX size={14} />
-                                      </button>
-                                    </div>
-
-                                    {app.paymentStatus === 'paid' && app.status !== 'confirmed' ? (
-                                      <button 
-                                        onClick={() => handleVerifyPayment(app.id!)}
-                                        className="flex-[2] bg-blue-500 text-white py-2 rounded-xl text-[10px] font-bold hover:bg-blue-600 transition-all flex items-center justify-center gap-2 animate-pulse"
-                                      >
-                                        <Info size={14} /> Validar PIX e Confirmar
-                                      </button>
-                                    ) : (
-                                      <button 
-                                        onClick={() => handleUpdateStatus(app.id!, 'confirmed')}
-                                        className={`flex-1 py-2 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-2 ${
-                                          app.status === 'confirmed' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-600 hover:bg-green-600 hover:text-white'
-                                        }`}
-                                      >
-                                        <CheckCircle2 size={14} /> {app.status === 'confirmed' ? 'Confirmado' : 'Confirmar'}
-                                      </button>
+                                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                                    {app.paymentStatus === 'pending' && app.status !== 'cancelled' && (
+                                      <div className="flex-1 px-3 py-1 bg-neutral-50 rounded-xl text-[7px] font-bold text-neutral-300 uppercase tracking-widest text-center border border-dashed border-neutral-100">
+                                        Aguardando Pagamento
+                                      </div>
                                     )}
-                                    <button 
-                                      onClick={() => handleUpdateStatus(app.id!, 'cancelled')}
-                                      className={`flex-1 py-2 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-2 ${
-                                        app.status === 'cancelled' ? 'bg-red-600 text-white' : 'bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white'
-                                      }`}
-                                    >
-                                      <XCircle size={14} /> Cancelar
-                                  </button>
-                                  <button 
-                                    onClick={() => handleDeleteAppointment(app.id!)}
-                                    className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                                {app.paymentStatus === 'pending' && app.status !== 'cancelled' && (
-                                  <div className="mt-2 px-3 py-1.5 bg-neutral-50 rounded-xl text-[8px] font-bold text-neutral-400 uppercase tracking-widest text-center border border-dashed border-neutral-100">
-                                    Aguardando Cliente Realizar PIX
+                                    {app.paymentStatus === 'verified' && (
+                                      <div className="flex-1 px-3 py-1 bg-green-50 rounded-xl text-[7px] font-bold text-green-500 uppercase tracking-widest text-center border border-green-100/50">
+                                        Pagamento Validado
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                                {app.paymentStatus === 'verified' && (
-                                  <div className="mt-2 px-3 py-1.5 bg-green-50 rounded-xl text-[8px] font-bold text-green-600 uppercase tracking-widest text-center">
-                                    Pagamento Validado
-                                  </div>
-                                )}
-                              </motion.div>
+                                </motion.div>
                             ))}
                           </div>
                         )}
                       </div>
-                    </>
+                    </div>
                   )}
 
                   {adminTab === 'folgas' && (

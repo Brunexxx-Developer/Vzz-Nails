@@ -27,10 +27,11 @@
         "date": { "type": "string", "format": "date" },
         "time": { "type": "string" },
         "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled"] },
+        "paymentStatus": { "type": "string", "enum": ["pending", "paid", "verified", "presential"] },
         "description": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["customerId", "customerName", "customerPhone", "professionalId", "serviceId", "date", "time", "status", "createdAt"]
+      "required": ["customerId", "customerName", "customerPhone", "professionalId", "serviceId", "date", "time", "status", "paymentStatus", "createdAt"]
     },
     "Professional": {
       "title": "Professional",

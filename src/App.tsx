@@ -28,7 +28,9 @@ import {
   Info,
   Image,
   Coffee,
-  Search
+  Search,
+  Calendar,
+  X
 } from 'lucide-react';
 import { collection, addDoc, query, orderBy, onSnapshot, where, updateDoc, doc, deleteDoc, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
@@ -355,6 +357,8 @@ const ServiceSection = ({
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [adminTab, setAdminTab] = useState<'agenda' | 'folgas' | 'usuarios' | 'equipe' | 'galeria' | 'bloqueios'>('agenda');
   const [adminDateFilter, setAdminDateFilter] = useState<string>('all');
+  const [adminStatusFilter, setAdminStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'cancelled'>('all');
+  const [adminPaymentFilter, setAdminPaymentFilter] = useState<'all' | 'pending' | 'paid' | 'verified' | 'presential'>('all');
   const [adminSearch, setAdminSearch] = useState('');
   const [adminProfessionalFilter, setAdminProfessionalFilter] = useState<string>('all');
   const [expandedAppointmentId, setExpandedAppointmentId] = useState<string | null>(null);
@@ -823,9 +827,13 @@ const ServiceSection = ({
     }
   };
 
-  const handleUpdateStatus = async (id: string, status: 'confirmed' | 'cancelled') => {
+  const handleUpdateStatus = async (id: string, status: 'pending' | 'confirmed' | 'cancelled', paymentStatus?: string) => {
     try {
-      await updateDoc(doc(db, 'appointments', id), { status });
+      const updateData: any = { status };
+      if (paymentStatus) {
+        updateData.paymentStatus = paymentStatus;
+      }
+      await updateDoc(doc(db, 'appointments', id), updateData);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'appointments');
     }
@@ -1670,9 +1678,12 @@ const ServiceSection = ({
                             {app.status !== 'cancelled' && (
                               <div className={`px-3 py-1 rounded-full text-[8px] font-bold uppercase tracking-wider ${
                                 app.paymentStatus === 'paid' ? 'bg-blue-50 text-blue-600' : 
-                                app.paymentStatus === 'verified' ? 'bg-green-100 text-green-800' : 'bg-neutral-100 text-neutral-400'
+                                app.paymentStatus === 'verified' ? 'bg-green-100 text-green-800' : 
+                                app.paymentStatus === 'presential' ? 'bg-purple-50 text-purple-600' : 'bg-neutral-100 text-neutral-400'
                               }`}>
-                                {app.paymentStatus === 'paid' ? 'Pagamento Realizado' : app.paymentStatus === 'verified' ? 'Pagamento Verificado' : 'Aguardando Pagamento'}
+                                {app.paymentStatus === 'paid' ? 'Aguardando Verificação' : 
+                                 app.paymentStatus === 'verified' ? 'Pagamento Verificado' : 
+                                 app.paymentStatus === 'presential' ? 'Pagamento Presencial' : 'Aguardando Pagamento'}
                               </div>
                             )}
                             {app.status !== 'cancelled' && (
@@ -1688,20 +1699,27 @@ const ServiceSection = ({
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-3 pt-2">
-                          <img src={prof?.avatar} alt="" className="w-8 h-8 rounded-lg object-cover bg-neutral-100" />
-                          <div>
-                            <p className="text-[8px] text-neutral-400 font-bold uppercase tracking-widest">Especialista</p>
-                            <p className="text-[10px] font-bold text-neutral-800 uppercase tracking-tighter">{prof?.name || 'Profissional'}</p>
+                        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-3 border-t border-neutral-50 px-1">
+                          <div className="flex items-center gap-3">
+                            <img src={prof?.avatar} alt="" className="w-8 h-8 rounded-lg object-cover bg-neutral-100 shadow-sm" />
+                            <div>
+                              <p className="text-[8px] text-neutral-400 font-bold uppercase tracking-widest leading-tight">Especialista</p>
+                              <p className="text-[10px] font-bold text-neutral-800 uppercase tracking-tighter">{prof?.name || 'Profissional'}</p>
+                            </div>
                           </div>
-                        </div>
 
-                        <div className="flex gap-4 pt-3 border-t border-neutral-50">
-                          <div className="flex items-center gap-2 text-xs text-neutral-500 bg-neutral-50 px-3 py-1.5 rounded-xl">
-                            <CalendarIcon size={12} /> {app.date.split('-').reverse().join('/')}
+                          <div className="flex gap-2">
+                            <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-500 bg-neutral-50 px-2.5 py-1.5 rounded-xl border border-neutral-100/50">
+                              <CalendarIcon size={10} className="text-primary/50" /> {app.date.split('-').reverse().join('/')}
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-500 bg-neutral-50 px-2.5 py-1.5 rounded-xl border border-neutral-100/50">
+                              <Clock size={10} className="text-primary/50" /> {app.time}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-neutral-500 bg-neutral-50 px-3 py-1.5 rounded-xl">
-                            <Clock size={12} /> {app.time}
+
+                          <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400 ml-auto">
+                            <MapPin size={10} className="text-primary/30" /> 
+                            <span className="truncate max-w-[120px]">Rua Brook Taylor, 471</span>
                           </div>
                         </div>
                       </div>
@@ -2024,12 +2042,37 @@ const ServiceSection = ({
                             <select 
                               value={adminProfessionalFilter}
                               onChange={e => setAdminProfessionalFilter(e.target.value)}
-                              className="px-4 py-3 bg-neutral-50 rounded-2xl text-[11px] font-bold uppercase tracking-wider outline-none border-none"
+                              className="px-4 py-3 bg-neutral-50 rounded-2xl text-[11px] font-bold uppercase tracking-wider outline-none border-none shrink-0"
                             >
-                              <option value="all">Equipe: Todos</option>
+                              <option value="all">Equipe: Todas</option>
                               {(liveProfessionals.length > 0 ? liveProfessionals : PROFESSIONALS).map(p => (
                                 <option key={p.id} value={p.id}>{p.name.split(' ')[0]}</option>
                               ))}
+                            </select>
+                          </div>
+
+                          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                            <select 
+                              value={adminStatusFilter}
+                              onChange={e => setAdminStatusFilter(e.target.value as any)}
+                              className="px-4 py-2.5 bg-neutral-50 rounded-xl text-[10px] font-bold uppercase tracking-wider outline-none border-none"
+                            >
+                              <option value="all">Status: Todos</option>
+                              <option value="pending">⏳ Pendente</option>
+                              <option value="confirmed">✅ Confirmado</option>
+                              <option value="cancelled">❌ Cancelado</option>
+                            </select>
+
+                            <select 
+                              value={adminPaymentFilter}
+                              onChange={e => setAdminPaymentFilter(e.target.value as any)}
+                              className="px-4 py-2.5 bg-neutral-50 rounded-xl text-[10px] font-bold uppercase tracking-wider outline-none border-none"
+                            >
+                              <option value="all">Pagamento: Todos</option>
+                              <option value="pending">Aguardando</option>
+                              <option value="paid">Pago (Pix)</option>
+                              <option value="verified">Verificado</option>
+                              <option value="presential">Presencial</option>
                             </select>
                           </div>
 
@@ -2054,6 +2097,15 @@ const ServiceSection = ({
                           </div>
                         </div>
 
+                        {/* Horizontal Date Picker header */}
+                        <div className="flex items-center justify-between px-4 pb-2">
+                          <h3 className="text-[10px] uppercase tracking-widest text-neutral-400 font-bold">Dias do Mês</h3>
+                          <div className="flex gap-1">
+                             <button onClick={() => scrollDates('left')} className="p-1.5 rounded-lg bg-neutral-100 text-neutral-500 hover:text-primary"><ChevronLeft size={14} /></button>
+                             <button onClick={() => setAdminTab('agenda')} className="p-1.5 rounded-lg bg-neutral-100 text-neutral-500 hover:text-primary"><Calendar size={14} /></button>
+                             <button onClick={() => scrollDates('right')} className="p-1.5 rounded-lg bg-neutral-100 text-neutral-500 hover:text-primary"><ChevronRight size={14} /></button>
+                          </div>
+                        </div>
                         {/* Horizontal Date Picker */}
                         <div 
                           ref={scrollContainerRef}
@@ -2069,25 +2121,28 @@ const ServiceSection = ({
                           >
                             Tudo
                           </button>
-                          {[...Array(14)].map((_, i) => {
-                            const d = new Date();
-                            d.setDate(d.getDate() + i);
-                            const dateStr = d.toISOString().split('T')[0];
-                            return (
-                              <button 
-                                key={dateStr}
-                                onClick={() => setAdminDateFilter(dateStr)}
-                                className={`px-4 py-2 rounded-xl text-[10px] font-bold whitespace-nowrap transition-all border flex gap-2 items-center ${
-                                  adminDateFilter === dateStr 
-                                    ? 'bg-primary text-white border-primary shadow-sm' 
-                                    : 'bg-neutral-50 text-neutral-400 border-transparent'
-                                }`}
-                              >
-                                <span className="opacity-60 uppercase">{d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.','')}</span>
-                                <span>{d.getDate()}</span>
-                              </button>
-                            );
-                          })}
+                          {(() => {
+                            const now = new Date();
+                            const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+                            return [...Array(days)].map((_, i) => {
+                              const d = new Date(now.getFullYear(), now.getMonth(), i + 1);
+                              const dateStr = d.toISOString().split('T')[0];
+                              return (
+                                <button 
+                                  key={dateStr}
+                                  onClick={() => setAdminDateFilter(dateStr)}
+                                  className={`px-4 py-2 rounded-xl text-[10px] font-bold whitespace-nowrap transition-all border flex gap-2 items-center ${
+                                    adminDateFilter === dateStr 
+                                      ? 'bg-primary text-white border-primary shadow-sm' 
+                                      : 'bg-neutral-50 text-neutral-400 border-transparent'
+                                  }`}
+                                >
+                                  <span className="opacity-60 uppercase">{d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.','')}</span>
+                                  <span>{d.getDate()}</span>
+                                </button>
+                              );
+                            });
+                          })()}
                         </div>
                       </div>
 
@@ -2101,10 +2156,12 @@ const ServiceSection = ({
                         {appointments.filter(a => {
                           const matchesDate = adminDateFilter === 'all' || a.date === adminDateFilter;
                           const matchesProf = adminProfessionalFilter === 'all' || a.professionalId === adminProfessionalFilter;
+                          const matchesStatus = adminStatusFilter === 'all' || a.status === adminStatusFilter;
+                          const matchesPayment = adminPaymentFilter === 'all' || a.paymentStatus === adminPaymentFilter;
                           const matchesSearch = !adminSearch || 
                             (a.customerName?.toLowerCase().includes(adminSearch.toLowerCase()) || 
                              a.customerPhone?.toLowerCase().includes(adminSearch.toLowerCase()));
-                          return matchesDate && matchesProf && matchesSearch;
+                          return matchesDate && matchesProf && matchesStatus && matchesPayment && matchesSearch;
                         }).length === 0 ? (
                           <div className="text-center p-16 text-neutral-300 bg-white rounded-[40px] border border-dashed border-neutral-200">
                             Nenhum agendamento encontrado
@@ -2115,10 +2172,12 @@ const ServiceSection = ({
                               .filter(a => {
                                 const matchesDate = adminDateFilter === 'all' || a.date === adminDateFilter;
                                 const matchesProfessional = adminProfessionalFilter === 'all' || a.professionalId === adminProfessionalFilter;
+                                const matchesStatus = adminStatusFilter === 'all' || a.status === adminStatusFilter;
+                                const matchesPayment = adminPaymentFilter === 'all' || a.paymentStatus === adminPaymentFilter;
                                 const matchesSearch = !adminSearch || 
                                   (a.customerName?.toLowerCase().includes(adminSearch.toLowerCase()) || 
                                    a.customerPhone?.toLowerCase().includes(adminSearch.toLowerCase()));
-                                return matchesDate && matchesProfessional && matchesSearch;
+                                return matchesDate && matchesProfessional && matchesStatus && matchesPayment && matchesSearch;
                               })
                               .map(app => (
                                 <motion.div 
@@ -2147,11 +2206,22 @@ const ServiceSection = ({
                                         </p>
                                       </div>
                                     </div>
-                                    <div className={`px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-wider ${
-                                      app.status === 'confirmed' ? 'bg-green-50 text-green-600' : 
-                                      app.status === 'cancelled' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'
-                                    }`}>
-                                      {app.status === 'pending' ? 'Pendente' : app.status === 'confirmed' ? 'Confirmado' : 'Cancelado'}
+                                    <div className="flex gap-1.5 shrink-0">
+                                      <div className={`px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-wider ${
+                                        app.status === 'confirmed' ? 'bg-green-50 text-green-600' : 
+                                        app.status === 'cancelled' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'
+                                      }`}>
+                                        {app.status === 'pending' ? 'Pendente' : app.status === 'confirmed' ? 'Confirmado' : 'Cancelado'}
+                                      </div>
+                                      {app.paymentStatus !== 'pending' && (
+                                        <div className={`px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-wider ${
+                                          app.paymentStatus === 'verified' ? 'bg-green-600 text-white' : 
+                                          app.paymentStatus === 'presential' ? 'bg-purple-500 text-white' : 'bg-blue-500 text-white'
+                                        }`}>
+                                          {app.paymentStatus === 'verified' ? 'Verificado' : 
+                                           app.paymentStatus === 'presential' ? 'Presencial' : 'Pago (?)'}
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
 
@@ -2174,19 +2244,43 @@ const ServiceSection = ({
                                     </div>
 
                                     <div className="flex gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-                                      {app.paymentStatus === 'paid' && app.status !== 'confirmed' ? (
+                                      {(app.paymentStatus === 'paid' || app.paymentStatus === 'pending' || app.paymentStatus === 'presential') && app.paymentStatus !== 'verified' && (
                                         <button 
                                           onClick={() => handleVerifyPayment(app.id!)}
-                                          className="bg-primary text-white px-4 py-2 rounded-xl text-[10px] font-bold shadow-md shadow-primary/20 animate-pulse"
+                                          className={`px-4 py-2 rounded-xl text-[10px] font-bold shadow-md transition-all ${
+                                            app.paymentStatus === 'paid' 
+                                            ? 'bg-primary text-white shadow-primary/20 animate-pulse' 
+                                            : 'bg-green-50 text-green-600 shadow-sm border border-green-100 hover:bg-green-100'
+                                          }`}
                                         >
-                                          Validar PIX
+                                          {app.paymentStatus === 'paid' ? 'Validar PIX' : 'Confirmar Pagamento'}
                                         </button>
-                                      ) : app.status !== 'confirmed' && (
+                                      )}
+
+                                      {app.status !== 'confirmed' && app.paymentStatus !== 'verified' && app.paymentStatus !== 'presential' && (
+                                        <button 
+                                          onClick={() => handleUpdateStatus(app.id!, app.status, 'presential')}
+                                          className="bg-neutral-100 text-neutral-600 px-4 py-2 rounded-xl text-[10px] font-bold shadow-sm"
+                                        >
+                                          Pagar Presencial
+                                        </button>
+                                      )}
+                                      
+                                      {app.status !== 'confirmed' && (
                                         <button 
                                           onClick={() => handleUpdateStatus(app.id!, 'confirmed')}
                                           className="bg-neutral-800 text-white px-4 py-2 rounded-xl text-[10px] font-bold shadow-sm"
                                         >
                                           Confirmar
+                                        </button>
+                                      )}
+
+                                      {app.paymentStatus !== 'pending' && (
+                                        <button 
+                                          onClick={() => handleUpdateStatus(app.id!, app.status as any, 'pending')}
+                                          className="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-[10px] font-bold shadow-sm hover:bg-red-100 flex items-center gap-1.5"
+                                        >
+                                          <X size={10} /> Remover Pagamento
                                         </button>
                                       )}
                                       

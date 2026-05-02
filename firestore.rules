@@ -30,7 +30,7 @@ service cloud.firestore {
              data.date is string &&
              data.time is string &&
              data.status in ['pending', 'confirmed', 'cancelled'] &&                
-             data.paymentStatus in ['pending', 'paid', 'verified'] &&
+             data.paymentStatus in ['pending', 'paid', 'verified', 'presential'] &&
              data.createdAt is string &&
              (!('description' in data) || data.description is string);
     }

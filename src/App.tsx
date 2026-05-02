@@ -32,7 +32,7 @@ import {
   Calendar,
   X
 } from 'lucide-react';
-import { collection, addDoc, query, orderBy, onSnapshot, where, updateDoc, doc, deleteDoc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, where, updateDoc, doc, deleteDoc, setDoc, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { db, handleFirestoreError, OperationType, auth, signInWithGoogle, logout } from './lib/firebase';
 import { Service, Appointment, DayOff, UserStatus, Professional, PortfolioItem, TimeBlock } from './types';
@@ -83,7 +83,7 @@ const Button = ({
   );
 };
 
-const CustomCalendar = ({ selectedDate, onSelect, daysOff = [] }: { selectedDate: string, onSelect: (date: string) => void, daysOff?: string[] }) => {
+const CustomCalendar = ({ selectedDate, onSelect, daysOff = [], fullDays = [] }: { selectedDate: string, onSelect: (date: string) => void, daysOff?: string[], fullDays?: string[] }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   
   const daysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
@@ -140,7 +140,8 @@ const CustomCalendar = ({ selectedDate, onSelect, daysOff = [] }: { selectedDate
           const d = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
           const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           const isOff = daysOff.includes(dateStr);
-          const disabled = isPast(day) || isOff;
+          const isFull = fullDays.includes(dateStr);
+          const disabled = isPast(day) || isOff || isFull;
           const active = isSelected(day);
           
           return (
@@ -151,12 +152,17 @@ const CustomCalendar = ({ selectedDate, onSelect, daysOff = [] }: { selectedDate
                 active 
                   ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110 z-10' 
                   : disabled 
-                    ? 'text-neutral-200 cursor-not-allowed opacity-50' 
+                    ? isFull 
+                      ? 'text-neutral-300 bg-neutral-50/50 cursor-not-allowed opacity-60'
+                      : 'text-neutral-200 cursor-not-allowed opacity-50' 
                     : 'text-neutral-600 hover:bg-neutral-50 active:bg-primary/10'
               } ${isToday(day) && !active ? 'border border-primary/40 font-bold text-primary ring-2 ring-primary/5' : ''}`}
             >
               {day}
               {isOff && !active && <div className="absolute bottom-1 w-1 h-1 bg-red-400 rounded-full" />}
+              {isFull && !active && !isOff && !isPast(day) && (
+                <div className="absolute top-1 right-1 w-1 h-1 bg-neutral-300 rounded-full" />
+              )}
             </button>
           );
         })}
@@ -375,7 +381,78 @@ const ServiceSection = ({
   const [editingProfessional, setEditingProfessional] = useState<Professional | null>(null);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [newServiceName, setNewServiceName] = useState('');
+  const [errorNotification, setErrorNotification] = useState<string | null>(null);
+  const [fullDays, setFullDays] = useState<string[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Effect to calculate full days for the selected professional
+  useEffect(() => {
+    if (selectedProfessional) {
+      const q = query(
+        collection(db, 'appointments'),
+        where('professionalId', '==', selectedProfessional.id),
+        where('status', 'in', ['pending', 'confirmed'])
+      );
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const apps = snapshot.docs.map(doc => doc.data() as Appointment);
+        
+        // Group by date
+        const dateGroups: Record<string, string[]> = {};
+        apps.forEach(app => {
+          if (!dateGroups[app.date]) dateGroups[app.date] = [];
+          dateGroups[app.date].push(app.time);
+        });
+
+        // Add time blocks
+        timeBlocks
+          .filter(tb => tb.professionalId === selectedProfessional.id)
+          .forEach(tb => {
+            if (!dateGroups[tb.date]) dateGroups[tb.date] = [];
+            if (!dateGroups[tb.date].includes(tb.time)) {
+               dateGroups[tb.date].push(tb.time);
+            }
+          });
+
+        const full: string[] = [];
+        Object.entries(dateGroups).forEach(([date, busyTimes]) => {
+          const today = new Date().toISOString().split('T')[0];
+          
+          let availableSlots = TIME_SLOTS.filter(t => !busyTimes.includes(t));
+          
+          if (date === today) {
+             availableSlots = availableSlots.filter(t => {
+                const [hours, minutes] = t.split(':').map(Number);
+                const slotTime = new Date();
+                slotTime.setHours(hours, minutes, 0, 0);
+                return slotTime > new Date();
+             });
+          }
+
+          if (availableSlots.length === 0) {
+            full.push(date);
+          }
+        });
+        setFullDays(full);
+      });
+      return () => unsubscribe();
+    } else {
+      setFullDays([]);
+    }
+  }, [selectedProfessional, timeBlocks]);
+
+  // Auto-clear notification
+  useEffect(() => {
+    if (errorNotification) {
+      const timer = setTimeout(() => setErrorNotification(null), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorNotification]);
+
+  // Auto-scroll to top on navigation/step change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [step, adminTab]);
 
   // --- States for dynamic categories in admin ---
   const [newServiceCategory, setNewServiceCategory] = useState<string>('Aplicação');
@@ -634,6 +711,29 @@ const ServiceSection = ({
     }
 
     setIsSubmitting(true);
+
+    // Verificação de segurança de última hora
+    try {
+      const q = query(
+        collection(db, 'appointments'),
+        where('professionalId', '==', selectedProfessional!.id),
+        where('date', '==', selectedDate),
+        where('time', '==', selectedTime),
+        where('status', '!=', 'cancelled')
+      );
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        setErrorNotification('Ops! Parece que esse horário acabou de ser reservado por outra pessoa enquanto você finalizava. Por favor, escolha um novo horário disponível.');
+        setSelectedTime(null);
+        setTimeout(() => setStep('datetime'), 300);
+        setIsSubmitting(false);
+        return;
+      }
+    } catch (error) {
+      console.error("Erro na verificação final de disponibilidade:", error);
+    }
+
     const appointment: Omit<Appointment, 'id'> = {
       customerId: user.uid,
       customerName: customerInfo.name,
@@ -873,6 +973,33 @@ const ServiceSection = ({
   return (
     <div className="min-h-screen max-w-2xl mx-auto relative overflow-hidden flex flex-col bg-[#FAF9F6] shadow-2xl shadow-primary/5 min-w-[320px]">
       <AnimatePresence>
+        {errorNotification && (
+          <motion.div 
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[110] w-[90%] max-w-sm"
+          >
+            <div className="bg-white border-l-4 border-red-500 rounded-2xl p-4 shadow-2xl flex items-start gap-3">
+              <div className="p-2 bg-red-50 text-red-500 rounded-full shrink-0">
+                <ShieldAlert size={20} />
+              </div>
+              <div className="flex-1 space-y-1">
+                <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Atenção</p>
+                <p className="text-[13px] text-neutral-800 leading-tight font-medium">
+                  {errorNotification}
+                </p>
+              </div>
+              <button 
+                onClick={() => setErrorNotification(null)}
+                className="p-1 hover:bg-neutral-50 rounded-full text-neutral-300"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+
         {showBlockedUI && (
           <motion.div 
             initial={{ opacity: 0 }}
@@ -1062,7 +1189,7 @@ const ServiceSection = ({
                   </div>
                   <div className="flex flex-col items-center gap-2">
                     <p className="text-[8px] font-bold text-neutral-400 uppercase tracking-widest">Entre em contato</p>
-                    <a href={`https://wa.me/${OWNER_PHONE}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-3 bg-secondary rounded-2xl border border-primary/10 shadow-sm text-primary hover:scale-105 transition-transform">
+                    <a href={`https://wa.me/${OWNER_PHONE}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-3 bg-white rounded-2xl border border-neutral-100 shadow-sm text-primary hover:scale-105 transition-transform">
                       <Phone size={20} />
                     </a>
                   </div>
@@ -1294,6 +1421,7 @@ const ServiceSection = ({
                   selectedDate={selectedDate} 
                   onSelect={setSelectedDate} 
                   daysOff={daysOff.map(d => d.date)} 
+                  fullDays={fullDays}
                 />
               </section>
 
@@ -1687,60 +1815,73 @@ const ServiceSection = ({
                       <div key={app.id} className="bg-white p-6 rounded-[32px] border border-neutral-100 shadow-sm space-y-4">
                         <div className="flex justify-between items-start">
                           <div>
-                            <h4 className="font-bold text-neutral-800">{app.serviceName}</h4>
-                            <p className="text-xs text-neutral-400">R$ {app.price.toFixed(2)}</p>
+                            <h4 className="font-bold text-neutral-800 text-lg leading-tight">{app.serviceName}</h4>
+                            <p className="text-sm font-bold text-primary mt-1">R$ {app.price.toFixed(2)}</p>
                           </div>
-                          <div className="flex flex-col items-end gap-2">
-                            <div className={`px-3 py-1 rounded-full text-[8px] font-bold uppercase tracking-wider ${
-                              app.status === 'confirmed' ? 'bg-green-50 text-green-600' : 
-                              app.status === 'cancelled' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'
+                          
+                          {app.status !== 'cancelled' && (
+                            <div className={`px-3 py-1.5 rounded-xl text-[9px] font-bold uppercase tracking-wider border shadow-sm ${
+                              app.paymentStatus === 'paid' ? 'bg-blue-50 text-blue-600 border-blue-100' : 
+                              app.paymentStatus === 'verified' ? 'bg-green-50 text-green-700 border-green-200' : 
+                              app.paymentStatus === 'presential' ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-neutral-50 text-neutral-400 border-neutral-100'
                             }`}>
-                              {app.status === 'pending' ? 'Pendente' : app.status === 'confirmed' ? 'Confirmado' : 'Cancelado'}
+                              {app.paymentStatus === 'paid' ? 'Aguardando Verificação' : 
+                               app.paymentStatus === 'verified' ? 'Pago' : 
+                               app.paymentStatus === 'presential' ? 'Pagam. Presencial' : 'Pagamento Pendente'}
                             </div>
-                            {app.status !== 'cancelled' && (
-                              <div className={`px-3 py-1 rounded-full text-[8px] font-bold uppercase tracking-wider ${
-                                app.paymentStatus === 'paid' ? 'bg-blue-50 text-blue-600' : 
-                                app.paymentStatus === 'verified' ? 'bg-green-100 text-green-800' : 
-                                app.paymentStatus === 'presential' ? 'bg-purple-50 text-purple-600' : 'bg-neutral-100 text-neutral-400'
-                              }`}>
-                                {app.paymentStatus === 'paid' ? 'Aguardando Verificação' : 
-                                 app.paymentStatus === 'verified' ? 'Pagamento Verificado' : 
-                                 app.paymentStatus === 'presential' ? 'Pagamento Presencial' : 'Aguardando Pagamento'}
-                              </div>
-                            )}
-                            {app.status !== 'cancelled' && (
-                              <a 
-                                href={`https://wa.me/${OWNER_PHONE}?text=Olá,%20gostaria%20de%20desmarcar%20meu%20agendamento%20de%20${app.serviceName}%20no%20dia%20${app.date.split('-').reverse().join('/')}%20às%20${app.time}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[10px] text-primary font-bold hover:underline py-1 flex items-center gap-1"
-                              >
-                                <Phone size={10} /> Pedir Cancelamento
-                              </a>
-                            )}
+                          )}
+                        </div>
+
+                        <div className="pt-4 border-t border-dashed border-neutral-100 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <img src={prof?.avatar} alt="" className="w-10 h-10 rounded-2xl object-cover bg-neutral-100 shadow-sm" />
+                            <div>
+                              <p className="text-[8px] text-neutral-400 font-bold uppercase tracking-widest leading-tight">Especialista</p>
+                              <p className="text-[11px] font-bold text-neutral-800 uppercase tracking-tighter">{prof?.name || 'Profissional'}</p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end">
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-700">
+                              <CalendarIcon size={12} className="text-primary/60" /> {app.date.split('-').reverse().join('/')}
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-700">
+                              <Clock size={12} className="text-primary/60" /> {app.time}
+                            </div>
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-3 border-t border-neutral-50 px-1">
+                        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                           <div className="flex items-center gap-3">
-                            <img src={prof?.avatar} alt="" className="w-8 h-8 rounded-lg object-cover bg-neutral-100 shadow-sm" />
-                            <div>
-                              <p className="text-[8px] text-neutral-400 font-bold uppercase tracking-widest leading-tight">Especialista</p>
-                              <p className="text-[10px] font-bold text-neutral-800 uppercase tracking-tighter">{prof?.name || 'Profissional'}</p>
+                            <div className={`px-3 py-1.5 rounded-xl text-[9px] font-bold uppercase tracking-wider border shadow-sm ${
+                              app.status === 'confirmed' ? 'bg-green-50 text-green-600 border-green-100' : 
+                              app.status === 'cancelled' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-orange-50 text-orange-600 border-orange-100'
+                            }`}>
+                              {app.status === 'pending' ? 'A Confirmar' : app.status === 'confirmed' ? 'Confirmado' : 'Cancelado'}
                             </div>
+
+                            {app.status !== 'cancelled' ? (
+                              <a 
+                                href={`https://wa.me/${OWNER_PHONE}?text=Olá,%20gostaria%20de%20desmarcar%20meu%20agendamento%20de%20${app.serviceName}%20com%20a%20profissional%20${prof?.name}%20no%20dia%20${app.date.split('-').reverse().join('/')}%20às%20${app.time}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[9px] text-red-400 font-bold hover:text-red-500 transition-colors uppercase tracking-widest"
+                              >
+                                Solicitar Cancelamento
+                              </a>
+                            ) : (
+                              <a 
+                                href={`https://wa.me/${OWNER_PHONE}?text=Olá,%20gostaria%20de%20remarcar%20meu%20agendamento%20de%20${app.serviceName}%20com%20a%20profissional%20${prof?.name}%20que%20estava%20pra%20${app.date.split('-').reverse().join('/')}%20às%20${app.time}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[9px] text-primary font-bold hover:opacity-80 transition-opacity uppercase tracking-widest"
+                              >
+                                Remarcar Horário
+                              </a>
+                            )}
                           </div>
 
-                          <div className="flex gap-2">
-                            <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-500 bg-neutral-50 px-2.5 py-1.5 rounded-xl border border-neutral-100/50">
-                              <CalendarIcon size={10} className="text-primary/50" /> {app.date.split('-').reverse().join('/')}
-                            </div>
-                            <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-500 bg-neutral-50 px-2.5 py-1.5 rounded-xl border border-neutral-100/50">
-                              <Clock size={10} className="text-primary/50" /> {app.time}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400 ml-auto">
-                            <MapPin size={10} className="text-primary/30" /> 
+                          <div className="flex items-center gap-1 text-[9px] font-bold text-neutral-300">
+                            <MapPin size={10} /> 
                             <span className="truncate max-w-[120px]">Rua Brook Taylor, 471</span>
                           </div>
                         </div>
@@ -2092,8 +2233,8 @@ const ServiceSection = ({
                             >
                               <option value="all">Pagamento: Todos</option>
                               <option value="pending">Aguardando</option>
-                              <option value="paid">Pago (Pix)</option>
-                              <option value="verified">Verificado</option>
+                              <option value="paid">Pix Pendente</option>
+                              <option value="verified">Pago</option>
                               <option value="presential">Presencial</option>
                             </select>
                           </div>
@@ -2233,15 +2374,15 @@ const ServiceSection = ({
                                         app.status === 'confirmed' ? 'bg-green-50 text-green-600' : 
                                         app.status === 'cancelled' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'
                                       }`}>
-                                        {app.status === 'pending' ? 'Pendente' : app.status === 'confirmed' ? 'Confirmado' : 'Cancelado'}
+                                        {app.status === 'pending' ? 'A Confirmar' : app.status === 'confirmed' ? 'Confirmado' : 'Cancelado'}
                                       </div>
                                       {app.paymentStatus !== 'pending' && (
                                         <div className={`px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-wider ${
                                           app.paymentStatus === 'verified' ? 'bg-green-600 text-white' : 
                                           app.paymentStatus === 'presential' ? 'bg-purple-500 text-white' : 'bg-blue-500 text-white'
                                         }`}>
-                                          {app.paymentStatus === 'verified' ? 'Verificado' : 
-                                           app.paymentStatus === 'presential' ? 'Presencial' : 'Pago (?)'}
+                                          {app.paymentStatus === 'verified' ? 'Pago' : 
+                                           app.paymentStatus === 'presential' ? 'Presencial' : 'Pix Enviado'}
                                         </div>
                                       )}
                                     </div>
@@ -2265,64 +2406,70 @@ const ServiceSection = ({
                                       </button>
                                     </div>
 
-                                    <div className="flex flex-wrap gap-2 w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
-                                      {(app.paymentStatus === 'paid' || app.paymentStatus === 'pending' || app.paymentStatus === 'presential') && app.paymentStatus !== 'verified' && (
-                                        <button 
-                                          onClick={() => handleVerifyPayment(app.id!)}
-                                          className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-[10px] font-bold shadow-md transition-all ${
-                                            app.paymentStatus === 'paid' 
-                                            ? 'bg-primary text-white shadow-primary/20 animate-pulse' 
-                                            : 'bg-green-50 text-green-600 shadow-sm border border-green-100 hover:bg-green-100'
-                                          }`}
-                                        >
-                                          {app.paymentStatus === 'paid' ? 'Validar PIX' : 'Confirmar Pagamento'}
-                                        </button>
-                                      )}
+                                    <div className="flex flex-col gap-4 w-full" onClick={(e) => e.stopPropagation()}>
+                                      <div className="flex flex-wrap gap-2">
+                                        <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+                                          <p className="text-[8px] font-bold text-neutral-400 uppercase tracking-widest pl-1">Pagamento</p>
+                                          <div className="flex gap-1 p-1 bg-neutral-100 rounded-2xl w-full sm:w-auto">
+                                            <button 
+                                              onClick={() => handleUpdateStatus(app.id!, app.status as any, 'pending')}
+                                              className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-xl text-[9px] font-bold transition-all uppercase tracking-tight ${
+                                                app.paymentStatus === 'pending' ? 'bg-white text-neutral-800 shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
+                                              }`}
+                                            >
+                                              Aguardando
+                                            </button>
+                                            <button 
+                                              onClick={() => handleUpdateStatus(app.id!, app.status as any, 'presential')}
+                                              className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-xl text-[9px] font-bold transition-all uppercase tracking-tight ${
+                                                app.paymentStatus === 'presential' ? 'bg-purple-600 text-white shadow-sm' : 'text-neutral-400 hover:text-purple-600'
+                                              }`}
+                                            >
+                                              Presencial
+                                            </button>
+                                            <button 
+                                              onClick={() => app.paymentStatus === 'verified' ? handleUpdateStatus(app.id!, app.status as any, 'paid') : handleVerifyPayment(app.id!)}
+                                              className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-xl text-[9px] font-bold transition-all uppercase tracking-tight ${
+                                                app.paymentStatus === 'verified' ? 'bg-green-600 text-white shadow-sm' : 
+                                                app.paymentStatus === 'paid' ? 'bg-primary text-white shadow-sm animate-pulse' : 
+                                                'text-neutral-400 hover:text-green-600'
+                                              }`}
+                                            >
+                                              {app.paymentStatus === 'verified' ? 'Pago' : app.paymentStatus === 'paid' ? 'Validar Pix' : 'Marcar Pago'}
+                                            </button>
+                                          </div>
+                                        </div>
 
-                                      {app.status !== 'confirmed' && app.paymentStatus !== 'verified' && app.paymentStatus !== 'presential' && (
-                                        <button 
-                                          onClick={() => handleUpdateStatus(app.id!, app.status, 'presential')}
-                                          className="flex-1 sm:flex-initial bg-neutral-100 text-neutral-600 px-4 py-2.5 rounded-xl text-[10px] font-bold shadow-sm border border-neutral-200/50"
-                                        >
-                                          Pagar Presencial
-                                        </button>
-                                      )}
-                                      
-                                      {app.status !== 'confirmed' && (
-                                        <button 
-                                          onClick={() => handleUpdateStatus(app.id!, 'confirmed')}
-                                          className="flex-1 sm:flex-initial bg-neutral-800 text-white px-4 py-2.5 rounded-xl text-[10px] font-bold shadow-sm"
-                                        >
-                                          Confirmar
-                                        </button>
-                                      )}
-
-                                      {app.paymentStatus !== 'pending' && (
-                                        <button 
-                                          onClick={() => handleUpdateStatus(app.id!, app.status as any, 'pending')}
-                                          className="flex-1 sm:flex-initial bg-red-50 text-red-600 px-4 py-2.5 rounded-xl text-[10px] font-bold shadow-sm hover:bg-red-100 border border-red-100 flex items-center justify-center gap-1.5"
-                                        >
-                                          <X size={10} /> Remover Pagamento
-                                        </button>
-                                      )}
-                                      
-                                      {app.status === 'confirmed' && (
-                                        <button 
-                                          onClick={() => handleUpdateStatus(app.id!, 'cancelled')}
-                                          className="flex-1 sm:flex-initial bg-neutral-50 px-3 py-2.5 text-neutral-400 hover:text-red-400 text-[10px] font-bold transition-colors rounded-xl border border-neutral-100"
-                                        >
-                                          Cancelar
-                                        </button>
-                                      )}
-                                      
-                                      {app.status === 'cancelled' && (
-                                         <button 
-                                          onClick={() => handleUpdateStatus(app.id!, 'confirmed')}
-                                          className="flex-1 sm:flex-initial bg-green-50 px-3 py-2.5 text-green-600 hover:text-green-700 text-[10px] font-bold transition-colors rounded-xl border border-green-100"
-                                        >
-                                          Reativar
-                                        </button>
-                                      )}
+                                        <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+                                          <p className="text-[8px] font-bold text-neutral-400 uppercase tracking-widest pl-1">Status</p>
+                                          <div className="flex gap-1 w-full sm:w-auto">
+                                            <button 
+                                              onClick={() => handleUpdateStatus(app.id!, 'pending')}
+                                              className={`flex-1 sm:flex-initial px-4 py-2.5 text-[10px] font-bold transition-all rounded-2xl border uppercase tracking-tight ${
+                                                app.status === 'pending' ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-neutral-50 text-neutral-400 border-neutral-100 hover:text-neutral-600'
+                                              }`}
+                                            >
+                                              A Confirmar
+                                            </button>
+                                            <button 
+                                              onClick={() => handleUpdateStatus(app.id!, 'confirmed')}
+                                              className={`flex-1 sm:flex-initial px-4 py-2.5 text-[10px] font-bold transition-all rounded-2xl border uppercase tracking-tight ${
+                                                app.status === 'confirmed' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-neutral-800 text-white border-transparent hover:bg-black'
+                                              }`}
+                                            >
+                                              Confirmar
+                                            </button>
+                                            <button 
+                                              onClick={() => handleUpdateStatus(app.id!, 'cancelled')}
+                                              className={`flex-1 sm:flex-initial px-4 py-2.5 text-[10px] font-bold transition-all rounded-2xl border uppercase tracking-tight ${
+                                                app.status === 'cancelled' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-white text-neutral-400 border-neutral-100 hover:text-red-600 hover:bg-red-50/50'
+                                              }`}
+                                            >
+                                              Cancelar
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
 

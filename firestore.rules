@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { 
+      return isSignedIn() && 
+             (request.auth.token.email == "bruno.c.reis.ds@gmail.com" || request.auth.token.email == "vazbarrosestela@gmail.com") && 
+             request.auth.token.email_verified == true; 
+    }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    
+    function isNotBlocked() {
+      let path = /databases/$(database)/documents/user_status/$(request.auth.uid);
+      return !exists(path) || get(path).data.get('isBlocked', false) == false;
+    }
+
+    function isValidAppointment(data) {
+      return data.customerId is string &&
+             data.customerName is string && data.customerName.size() <= 100 &&
+             data.customerPhone is string && data.customerPhone.size() <= 20 &&
+             data.professionalId is string &&
+             data.professionalName is string &&
+             data.serviceId is string &&
+             data.serviceName is string &&
+             data.price is number &&
+             data.date is string &&
+             data.time is string &&
+             data.status in ['pending', 'confirmed', 'cancelled'] &&                
+             data.paymentStatus in ['pending', 'paid', 'verified'] &&
+             data.createdAt is string &&
+             (!('description' in data) || data.description is string);
+    }
+
+    match /appointments/{appointmentId} {
+      allow create: if isSignedIn() && isNotBlocked() && isValidAppointment(request.resource.data) && request.resource.data.customerId == request.auth.uid;
+      allow read: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
+      allow update: if (isAdmin()) || (isSignedIn() && 
+                                      resource.data.customerId == request.auth.uid && 
+                                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus']) && 
+                                      request.resource.data.paymentStatus == 'paid');
+      allow delete: if isAdmin();
+    }
+
+    match /user_status/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == userId && 
+                    request.resource.data.get('isBlocked', false) == false && 
+                    request.resource.data.get('isFlagged', false) == false;
+      allow update: if (isSignedIn() && request.auth.uid == userId && 
+                       request.resource.data.get('isBlocked', false) == resource.data.get('isBlocked', false) && 
+                       request.resource.data.get('isFlagged', false) == resource.data.get('isFlagged', false)) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /professionals/{professionalId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /days_off/{dayOffId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /portfolio/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /time_blocks/{blockId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "entities": {
+    "Service": {
+      "title": "Service",
+      "description": "A nail service offered by the salon",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string", "enum": ["Aplicação", "Decoração", "Remoção"] },
+        "price": { "type": "number" }
+      },
+      "required": ["name", "category", "price"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "A scheduled nail appointment",
+      "type": "object",
+      "properties": {
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "professionalId": { "type": "string" },
+        "professionalName": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "price": { "type": "number" },
+        "date": { "type": "string", "format": "date" },
+        "time": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled"] },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerId", "customerName", "customerPhone", "professionalId", "serviceId", "date", "time", "status", "createdAt"]
+    },
+    "Professional": {
+      "title": "Professional",
+      "description": "Information about a service provider",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "avatar": { "type": "string" },
+        "services": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "serviceId": { "type": "string" },
+              "price": { "type": "number" }
+            }
+          }
+        }
+      },
+      "required": ["name", "role", "avatar", "services"]
+    },
+    "DayOff": {
+      "title": "Day Off",
+      "description": "A date when the salon is closed",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date" },
+        "reason": { "type": "string" }
+      },
+      "required": ["date"]
+    },
+    "UserStatus": {
+      "title": "User Status",
+      "description": "Administrative status and profile of a user",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "lastUsedName": { "type": "string" },
+        "lastUsedPhone": { "type": "string" },
+        "isBlocked": { "type": "boolean" },
+        "isFlagged": { "type": "boolean" },
+        "adminNotes": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["isBlocked", "isFlagged", "updatedAt"]
+    },
+    "PortfolioItem": {
+      "title": "Portfolio Item",
+      "properties": {
+        "imageUrl": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["imageUrl", "createdAt"]
+    },
+    "TimeBlock": {
+      "title": "Time Block",
+      "properties": {
+        "professionalId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "time": { "type": "string" },
+        "reason": { "type": "string" }
+      },
+      "required": ["professionalId", "date", "time"]
+    }
+  },
+  "firestore": {
+    "services": {
+      "schema": "Service",
+      "description": "Collection of available nail services"
+    },
+    "appointments": {
+      "schema": "Appointment",
+      "description": "Collection of bookings"
+    },
+    "days_off": {
+      "schema": "DayOff",
+      "description": "Dates with no bookings allowed"
+    },
+    "user_status": {
+      "schema": "UserStatus",
+      "description": "Administrative status for users (flagged/blocked)"
+    },
+    "portfolio": {
+      "schema": "PortfolioItem",
+      "description": "Portfólio de trabalhos realizados"
+    },
+    "time_blocks": {
+      "schema": "TimeBlock",
+      "description": "Bloqueios de horários (almoço, janelas, etc)"
+    }
+  }
+}

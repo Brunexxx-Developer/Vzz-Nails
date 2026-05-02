@@ -1241,7 +1241,7 @@ const ServiceSection = ({
                 </div>
               </div>
 
-              <div className="space-y-12 pb-10">
+              <div className="space-y-12 pb-32">
                 {(Object.entries(categories) as [string, Service[]][]).map(([category, services]) => (
                   <ServiceSection 
                     key={category}
@@ -1254,15 +1254,25 @@ const ServiceSection = ({
                 ))}
               </div>
 
-              <div className="pt-6 sticky bottom-4 bg-[#FAF9F6]/90 backdrop-blur-md -mx-6 px-6 pb-4">
-                <Button 
-                  onClick={nextStep} 
-                  disabled={!selectedService} 
-                  className="w-full h-15"
-                >
-                  Continuar
-                </Button>
-              </div>
+              <AnimatePresence>
+                {selectedService && (
+                  <motion.div 
+                    initial={{ y: 100, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 100, opacity: 0 }}
+                    className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#FAF9F6] via-[#FAF9F6] to-transparent z-[60] flex justify-center pointer-events-none"
+                  >
+                    <div className="w-full max-w-2xl px-6 pointer-events-auto">
+                      <Button 
+                        onClick={nextStep} 
+                        className="w-full h-16 shadow-2xl shadow-primary/30 text-lg font-bold"
+                      >
+                        Continuar
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           ) : step === 'datetime' ? (
             <motion.div
@@ -1335,15 +1345,27 @@ const ServiceSection = ({
                 )}
               </AnimatePresence>
 
-              <div className="pt-4">
-                <Button 
-                  onClick={nextStep} 
-                  disabled={!selectedDate || !selectedTime} 
-                  className="w-full h-15"
-                >
-                  Confirmar Data
-                </Button>
-              </div>
+              <div className="h-32" />
+
+              <AnimatePresence>
+                {selectedDate && selectedTime && (
+                  <motion.div 
+                    initial={{ y: 100, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 100, opacity: 0 }}
+                    className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#FAF9F6] via-[#FAF9F6] to-transparent z-[60] flex justify-center pointer-events-none"
+                  >
+                    <div className="w-full max-w-2xl px-6 pointer-events-auto">
+                      <Button 
+                        onClick={nextStep} 
+                        className="w-full h-16 shadow-2xl shadow-primary/30 text-lg font-bold"
+                      >
+                        Confirmar Data
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           ) : step === 'form' ? (
             <motion.div

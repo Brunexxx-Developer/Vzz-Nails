@@ -2225,29 +2225,29 @@ const ServiceSection = ({
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center justify-between gap-2 pt-1">
-                                    <div className="flex gap-1.5">
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+                                    <div className="flex gap-2">
                                       <a 
                                         href={`https://wa.me/${app.customerPhone.replace(/\D/g,'')}`} 
                                         target="_blank" 
                                         onClick={(e) => e.stopPropagation()}
-                                        className="p-2 bg-neutral-50 text-neutral-400 hover:text-green-500 rounded-xl transition-colors border border-transparent hover:border-green-100"
+                                        className="flex-1 sm:flex-initial flex items-center justify-center p-2.5 bg-neutral-50 text-neutral-400 hover:text-green-500 rounded-xl transition-colors border border-neutral-100 hover:border-green-100"
                                       >
                                         <Phone size={14} />
                                       </a>
                                       <button 
                                         onClick={(e) => { e.stopPropagation(); setExpandedAppointmentId(expandedAppointmentId === app.id ? null : app.id!); }}
-                                        className={`p-2 rounded-xl transition-colors ${expandedAppointmentId === app.id ? 'bg-primary/10 text-primary' : 'bg-neutral-50 text-neutral-400'}`}
+                                        className={`flex-1 sm:flex-initial flex items-center justify-center p-2.5 rounded-xl transition-colors border ${expandedAppointmentId === app.id ? 'bg-primary/10 text-primary border-primary/20' : 'bg-neutral-50 text-neutral-400 border-neutral-100'}`}
                                       >
                                         <Settings size={14} />
                                       </button>
                                     </div>
 
-                                    <div className="flex gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex flex-wrap gap-2 w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
                                       {(app.paymentStatus === 'paid' || app.paymentStatus === 'pending' || app.paymentStatus === 'presential') && app.paymentStatus !== 'verified' && (
                                         <button 
                                           onClick={() => handleVerifyPayment(app.id!)}
-                                          className={`px-4 py-2 rounded-xl text-[10px] font-bold shadow-md transition-all ${
+                                          className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-[10px] font-bold shadow-md transition-all ${
                                             app.paymentStatus === 'paid' 
                                             ? 'bg-primary text-white shadow-primary/20 animate-pulse' 
                                             : 'bg-green-50 text-green-600 shadow-sm border border-green-100 hover:bg-green-100'
@@ -2260,7 +2260,7 @@ const ServiceSection = ({
                                       {app.status !== 'confirmed' && app.paymentStatus !== 'verified' && app.paymentStatus !== 'presential' && (
                                         <button 
                                           onClick={() => handleUpdateStatus(app.id!, app.status, 'presential')}
-                                          className="bg-neutral-100 text-neutral-600 px-4 py-2 rounded-xl text-[10px] font-bold shadow-sm"
+                                          className="flex-1 sm:flex-initial bg-neutral-100 text-neutral-600 px-4 py-2.5 rounded-xl text-[10px] font-bold shadow-sm border border-neutral-200/50"
                                         >
                                           Pagar Presencial
                                         </button>
@@ -2269,7 +2269,7 @@ const ServiceSection = ({
                                       {app.status !== 'confirmed' && (
                                         <button 
                                           onClick={() => handleUpdateStatus(app.id!, 'confirmed')}
-                                          className="bg-neutral-800 text-white px-4 py-2 rounded-xl text-[10px] font-bold shadow-sm"
+                                          className="flex-1 sm:flex-initial bg-neutral-800 text-white px-4 py-2.5 rounded-xl text-[10px] font-bold shadow-sm"
                                         >
                                           Confirmar
                                         </button>
@@ -2278,7 +2278,7 @@ const ServiceSection = ({
                                       {app.paymentStatus !== 'pending' && (
                                         <button 
                                           onClick={() => handleUpdateStatus(app.id!, app.status as any, 'pending')}
-                                          className="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-[10px] font-bold shadow-sm hover:bg-red-100 flex items-center gap-1.5"
+                                          className="flex-1 sm:flex-initial bg-red-50 text-red-600 px-4 py-2.5 rounded-xl text-[10px] font-bold shadow-sm hover:bg-red-100 border border-red-100 flex items-center justify-center gap-1.5"
                                         >
                                           <X size={10} /> Remover Pagamento
                                         </button>
@@ -2287,7 +2287,7 @@ const ServiceSection = ({
                                       {app.status === 'confirmed' && (
                                         <button 
                                           onClick={() => handleUpdateStatus(app.id!, 'cancelled')}
-                                          className="px-3 py-2 text-neutral-400 hover:text-red-400 text-[10px] font-bold transition-colors"
+                                          className="flex-1 sm:flex-initial bg-neutral-50 px-3 py-2.5 text-neutral-400 hover:text-red-400 text-[10px] font-bold transition-colors rounded-xl border border-neutral-100"
                                         >
                                           Cancelar
                                         </button>
@@ -2296,7 +2296,7 @@ const ServiceSection = ({
                                       {app.status === 'cancelled' && (
                                          <button 
                                           onClick={() => handleUpdateStatus(app.id!, 'confirmed')}
-                                          className="px-3 py-2 text-neutral-400 hover:text-green-500 text-[10px] font-bold transition-colors"
+                                          className="flex-1 sm:flex-initial bg-green-50 px-3 py-2.5 text-green-600 hover:text-green-700 text-[10px] font-bold transition-colors rounded-xl border border-green-100"
                                         >
                                           Reativar
                                         </button>
